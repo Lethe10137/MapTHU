@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>地图标注（开始时需点击一下以加载地图图层）</title>
+    <style>
+      canvas {
+        border: 1px solid black;
+      }
+    </style>
+    <script src="data.js"></script>
+  </head>
+  <body>
+    <canvas id="myCanvas" width="6427" height="7174"></canvas>
+    <script>
+      const maxValue = Math.max.apply(
+        null,
+        points.map((point) => point[0])
+      );
+
+      let number = maxValue;
+
+      const canvas = document.getElementById("myCanvas");
+      const ctx = canvas.getContext("2d");
+
+      const img = new Image();
+      img.src = "empty.png";
+
+      //img.onload = function() {
+      //   console.log("load img");
+      //   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      //};
+
+      let selectedPoint = null;
+
+      // Draw all points on the canvas
+      function drawPoints() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.font = "12px Arial";
+        points.forEach((point) => {
+          const [id, x, y, list, color] = point;
+          ctx.beginPath();
+          ctx.arc(x, y, 5, 0, Math.PI * 2);
+          ctx.fillStyle = color ? "red" : "green";
+          ctx.fillText(id, x - 5, y - 10);
+          ctx.fill();
+        });
+
+        points.forEach((point) => {
+          point[3].forEach((connectedId) => {
+            const connectedPoint = points.find((p) => p[0] === connectedId);
+            if (point[0] < connectedPoint[0]) {
+              drawLine(point, connectedPoint);
+            }
+          });
+        });
+
+        console.log(points);
+      }
+
+      // Function to draw lines between two points
+      function drawLine(point1, point2) {
+        ctx.beginPath();
+        ctx.moveTo(point1[1], point1[2]);
+        ctx.lineTo(point2[1], point2[2]);
+        ctx.stroke();
+      }
+
+      // Initialize by drawing points
+      drawPoints();
+
+      canvas.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+
+        const x = event.offsetX;
+        const y = event.offsetY;
+        if (event.button !== 2) {
+          return;
+        }
+        console.log("right click at ", x, y);
+        const clickedPoint = points.find(
+          (point) => Math.sqrt((point[1] - x) ** 2 + (point[2] - y) ** 2) <= 8
+        );
+        if (clickedPoint) {
+          if (clickedPoint[3].length == 0) {
+            const to_delete = clickedPoint[0];
+            points = points.filter((point) => point[0] !== to_delete);
+          } else {
+            console.log(clickedPoint[3].length);
+          }
+        } else {
+          number += 1;
+          points.push([number, x, y, [], false]);
+        }
+
+        drawPoints();
+      });
+
+      // Event listener for mouse click
+      canvas.addEventListener("click", function (event) {
+        const x = event.offsetX;
+        const y = event.offsetY;
+
+        // Find the clicked point
+        const clickedPoint = points.find(
+          (point) => Math.sqrt((point[1] - x) ** 2 + (point[2] - y) ** 2) <= 8
+        );
+
+        if (clickedPoint) {
+          // Print clicked point's info in the console
+          console.log(
+            `Clicked Point: ID ${clickedPoint[0]}, Coordinates (${clickedPoint[1]}, ${clickedPoint[2]})`
+          );
+
+          if (selectedPoint) {
+            // Connect two points
+
+            if (selectedPoint[0] == clickedPoint[0]) {
+              selectedPoint[4] = false;
+              drawPoints();
+              selectedPoint = null;
+            } else {
+              if (!selectedPoint[3].includes(clickedPoint[0])) {
+                selectedPoint[3].push(clickedPoint[0]);
+                clickedPoint[3].push(selectedPoint[0]);
+              } else {
+                // Disconnect two points
+                selectedPoint[3] = selectedPoint[3].filter(
+                  (id) => id !== clickedPoint[0]
+                );
+                clickedPoint[3] = clickedPoint[3].filter(
+                  (id) => id !== selectedPoint[0]
+                );
+              }
+              selectedPoint[4] = false;
+
+              clickedPoint[4] = true;
+              // Redraw points and lines
+              drawPoints();
+
+              selectedPoint = clickedPoint;
+            }
+          } else {
+            clickedPoint[4] = true;
+            selectedPoint = clickedPoint;
+            selectedPoint[3] = [...selectedPoint[3]]; // Copy the array to prevent direct modification
+            selectedPoint[3] = selectedPoint[3].filter(
+              (id) => id !== selectedPoint[0]
+            ); // Remove self-referencing
+            drawPoints();
+          }
+        } else {
+          drawPoints();
+        }
+      });
+    </script>
+  </body>
+</html>
